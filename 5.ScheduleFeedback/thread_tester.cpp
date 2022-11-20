@@ -85,56 +85,6 @@ bool test_simple_thread_with_block()
 		std::cout<<"error5"<<'\n';
 		return false;
 	}
-	current_thread_blocked();
-	on_clock();
-	notify();
-	if (!_is_valid_status(&thread1, 0, 1))
-	{
-		std::cout<<"error6"<<'\n';
-		return false;
-	}
-	current_thread_blocked();
-	current_thread_blocked();
-	notify_all();
-	if (!_is_valid_status(&thread1, 1, 0))
-	{
-		std::cout<<"error7"<<'\n';
-		return false;
-	}
-	current_thread_finished();
-	if (!_is_valid_status(&thread2, 0, 0))
-	{
-		std::cout<<"error8"<<'\n';
-		return false;
-	}
-	on_clock();
-	on_clock();
-	if (!_is_valid_status(&thread2, 0, 0))
-	{
-		std::cout<<"error9"<<'\n';
-		return false;
-	}
-	current_thread_finished();
-	if (!_is_valid_status(&idle_thread, 0, 0))
-	{
-		std::cout<<"error10"<<'\n';
-		return false;
-	}
-	add_ready_thread(&thread1);
-	on_clock();
-	if (!_is_valid_status(&thread1, 0, 0))
-	{
-		std::cout<<"error11"<<'\n';
-		return false;
-	}
-	on_clock();
-	add_ready_thread(&thread2);
-	on_clock();
-	if (!_is_valid_status(&thread2, 0, 1))
-	{
-		std::cout<<"error12"<<'\n';
-		return false;
-	}
 
 	return true;
 }

@@ -1,88 +1,95 @@
 #include "thread_hdr.h"
-#include <deque>
 
-int myinterval = 0, myticks1 = 0, myticks2 = 0;
-int flag = 0;
+unsigned int first_time_ticks = 0;
+unsigned int second_time_ticks = 0;
+unsigned int time_interval = 0;
+unsigned int cur = 0;
 
-void schedule()
-{
-	if(current_thread != &idle_thread)
-		second_ready_queue.push_back(current_thread);
-	
-	if(first_ready_queue.size() !=0) {
-		current_thread = first_ready_queue.front();
-		first_ready_queue.pop_front();
-		flag = 0;
-	}
-	else if(second_ready_queue.size() != 0) {
-		current_thread = second_ready_queue.front();
-		second_ready_queue.pop_front();
-		flag = 1;
-	}
-	else current_thread = &idle_thread;
-
-	current_thread->clock_times = 0;
+// 向第一个队列末尾添加线程
+void add_ready_thread(thread* thread) {
+    thread->max_clock_times = first_time_ticks / time_interval;
+    first_ready_queue.push_back(thread);
 }
 
-void add_ready_thread(thread* ready_thread)
-{
-	first_ready_queue.push_back(ready_thread);
-	ready_thread -> clock_times = 0;
+// 调度线程
+void schedule() {
+    if(first_ready_queue.empty() && second_ready_queue.empty()){
+        current_thread = &idle_thread;
+        cur = 0;
+    }
+    else if(first_ready_queue.empty()){
+        current_thread = second_ready_queue.front();
+        cur = 2;
+        second_ready_queue.pop_front();
+    }
+    else{
+        current_thread = first_ready_queue.front();
+        cur = 1;
+        first_ready_queue.pop_front();
+    }
 }
 
-void current_thread_finished()
-{
-	current_thread = &idle_thread;
-	schedule();
+// 当前线程结束时，调度新的进程
+void current_thread_finished() {
+    schedule();
 }
 
-void current_thread_blocked()
-{
-	blocked_queue.push_back(current_thread);
-	current_thread->clock_times = 0;
-	current_thread = &idle_thread;
-	schedule();
+// 当前线程阻塞，首先将其加入阻塞队列，然后调度新的线程
+void current_thread_blocked() {
+    blocked_queue.push_back(current_thread);
+    schedule();
 }
 
-void notify()
-{
-	if(blocked_queue.size() != 0) {
-		first_ready_queue.push_back(blocked_queue.front());
-		blocked_queue.pop_front();
-		if(flag == 1) schedule();
-	}
+// 唤醒阻塞队列首部的线程，并将其放入一级队列末尾
+// 注意要把该线程的max_clock_times设置成新的
+void notify() {
+    blocked_queue.front()->max_clock_times =first_time_ticks / time_interval;
+    first_ready_queue.push_back(blocked_queue.front());
+    blocked_queue.pop_front();
 }
 
-void notify_all()
-{
-	int len = blocked_queue.size();
-	for(int i =0;i<len;i++) {
-		first_ready_queue.push_back(blocked_queue.front());
-		blocked_queue.pop_front();
-	}
-	if(flag == 1) schedule();
+// 阻塞队列中的线程依次出队入队
+void notify_all() {
+    while(!blocked_queue.empty()) {
+       notify();
+    }
 }
 
-void on_clock()
-{
-	current_thread->clock_times += myinterval;
-	if((current_thread == &idle_thread || flag == 1) && first_ready_queue.size() != 0) schedule();
-	if(((!flag&&current_thread != &idle_thread) ? current_thread->clock_times >= myticks1:current_thread->clock_times >= myticks2)  || current_thread == &idle_thread) {
-		schedule();
-	}
+// 时隙到达，当前线程能运行的时隙-1
+// 如果当前线程减到0，
+void on_clock() {
+    current_thread->max_clock_times -= 1;
+    // 需要调度的情况
+    if(current_thread->max_clock_times <= 0 || current_thread == &idle_thread) {
+        // 当前非idle线程切换，放到二级队列中
+        if(current_thread != &idle_thread) {
+            current_thread->max_clock_times = second_time_ticks / time_interval;
+            second_ready_queue.push_back(current_thread);
+        }
+        schedule();
+    }
+
+    // 重点，实现抢占式调度（这个需要看测试用例才知道）
+    if(cur == 2 && !first_ready_queue.empty()){
+        current_thread->max_clock_times = second_time_ticks / time_interval;
+        second_ready_queue.push_back(current_thread);
+        current_thread = first_ready_queue.front();
+        cur = 1;
+        first_ready_queue.pop_front();
+    }
 }
 
 void set_first_time_ticks(unsigned int ticks)
 {
-    myticks1 = ticks;
+    first_time_ticks = ticks;
 }
 
 void set_second_time_ticks(unsigned int ticks)
 {
-    myticks2 = ticks;
+    second_time_ticks = ticks;
 }
 
 void set_time_interval(unsigned int interval)
 {
-    myinterval = interval;
+    time_interval = interval;
 }
